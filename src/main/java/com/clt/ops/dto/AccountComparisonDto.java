@@ -16,5 +16,6 @@ public class AccountComparisonDto {
     private Double totalRevenue;
     private String accountComment;
     private Double forecastNetRevenue;
+    private Double difference;
 
 }

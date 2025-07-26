@@ -48,9 +48,8 @@ public class ClientFileProcessor implements GenericProcessor<ClientData> {
 	@Override
 	public ClientData process(ClientData clientData) {
 		try {
-			LocalDate endDate = LocalDate.parse(convertSubmitionDate(clientData.getEndDate()), DATE_FORMATTER);
-			LocalDate submitionDate = LocalDate.parse(convertSubmitionDate(clientData.getSubmitionDate()),
-					DATE_FORMATTER);
+			//LocalDate endDate = LocalDate.parse(convertSubmitionDate(clientData.getEndDate()), DATE_FORMATTER);
+			//LocalDate submitionDate = LocalDate.parse(convertSubmitionDate(clientData.getSubmissionDate()),DATE_FORMATTER);
 			LocalDate date = LocalDate.parse(convertToFormattedDate(clientData.getDate()), DATE_FORMATTER);
 
 			Optional<ClientEntity> optionalEntity = clientRepository.findByExternalIdAndDate(clientData.getExternalID(),
@@ -59,7 +58,7 @@ public class ClientFileProcessor implements GenericProcessor<ClientData> {
 			ClientEntity clientEntity = optionalEntity.orElse(new ClientEntity());
 
 			clientEntity.setClientId(String.valueOf(new BigDecimal(clientData.getID()).intValue()));
-			clientEntity.setTimesheetId(String.valueOf(new BigDecimal(clientData.getHeaderID()).intValue()));
+			//clientEntity.setTimesheetId(String.valueOf(new BigDecimal(clientData.getTimesheetHeaderID()).intValue()));
 			clientEntity.setExternalId(clientData.getExternalID().toUpperCase());
 			clientEntity.setAssosiateName(clientData.getAssosiateName());
 
@@ -70,19 +69,19 @@ public class ClientFileProcessor implements GenericProcessor<ClientData> {
 
 			clientEntity.setRtRate(parseAmount(clientData.getRTRate()));
 			clientEntity.setDate(date);
-			clientEntity.setSubmitionDate(submitionDate);
-			clientEntity.setEndDate(endDate);
+			//clientEntity.setSubmitionDate(submitionDate);
+			//clientEntity.setEndDate(endDate);
 			log.info("Preparing to process record # {}", clientData);
 
 			clientRepository.save(clientEntity);
 			log.info("Successfully persisted associate with CTS ID: {}", clientData.getExternalID());
 		} catch (Exception e) {
-			log.error("Failed to save ClientEntity for CTS ID: {}. Error: {}", clientData.getExternalID(),
+			log.error("Failed to save ClientEntity for External ID: {}. Error: {}", clientData.getExternalID(),
 					e.getMessage(), e);
 			log.error("this record has issue :{}", clientData.toString());
 		}
 
-		log.info("Successfully persisted associate with CTS ID: {}", clientData.getExternalID());
+		log.info("Successfully persisted associate with External ID: {}", clientData.getExternalID());
 
 		return clientData;
 	}

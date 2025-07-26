@@ -33,8 +33,8 @@ public class ClientEntity {
     @Column(name ="NAME",nullable = false)
 	private String name;   
     
-    @Column(name ="TIMESHEET_ID",nullable = false)
-	private String timesheetId;
+//    @Column(name ="TIMESHEET_ID",nullable = false)
+//	private String timesheetId;
     
     @Column(name ="UNITS")
 	private BigDecimal units;
@@ -45,12 +45,12 @@ public class ClientEntity {
     @Column(name ="RT_RATE")
 	private BigDecimal  rtRate;
     
-    @Column(name ="SUBMITTON_DATE",nullable = false)
-  	private LocalDate submitionDate;
+//    @Column(name ="SUBMITTON_DATE",nullable = false)
+//  	private LocalDate submitionDate;
 
     
-    @Column(name ="END_DATE",nullable = false)
-  	private LocalDate endDate;
+//    @Column(name ="END_DATE",nullable = false)
+//  	private LocalDate endDate;
     
     @Column(name ="EMAIL",nullable = false)
   	private String email;

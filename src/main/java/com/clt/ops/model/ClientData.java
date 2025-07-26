@@ -7,12 +7,12 @@ public class ClientData {
 	private String externalID;
 	private String assosiateName;
 	private String date;
-	private String headerID;
+	//private String timesheetHeaderID;
 	private String units;
 	private String name;
 	private String rTRate ;
-	private String submitionDate;
-	private String endDate;
+	//private String submissionDate;
+	//private String endDate;
 	private String email;
 
 	

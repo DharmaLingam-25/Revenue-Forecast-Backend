@@ -88,70 +88,98 @@ import jakarta.persistence.SqlResultSetMapping;
 
 @NamedNativeQuery(name = "AccountRevenueSummary.getAccountComparison", query = """
 SELECT
-ProjectRevenueSummary.`Account_ID`,
-ProjectRevenueSummary.`Account_Name`,
-COUNT(DISTINCT ProjectRevenueSummary.`Project_ID`) AS `Total_Projects`,
-SUM(ProjectRevenueSummary.`Revenue`) AS `Total_Revenue`,
-ac.`comment` AS `Account_Comment`,
-COALESCE(SUM(
-CASE :monthNameParam -- Parameter to pass the month name string (e.g., 'july')
-    WHEN 'january' THEN rf.`january`
-    WHEN 'february' THEN rf.`february`
-    WHEN 'march' THEN rf.`march`
-    WHEN 'april' THEN rf.`april`
-    WHEN 'may' THEN rf.`may`
-    WHEN 'june' THEN rf.`june`
-    WHEN 'july' THEN rf.`july`
-    WHEN 'august' THEN rf.`august`
-    WHEN 'september' THEN rf.`september`
-    WHEN 'october' THEN rf.`october`
-    WHEN 'november' THEN rf.`november`
-    WHEN 'december' THEN rf.`december`
-    ELSE 0 -- Default to 0 if monthNameParam doesn't match or is invalid
-END
-), 0) AS `Forecast_Net_Revenue` -- Added forecast revenue using CASE
+    ProjectRevenueSummary.`Account_ID`,
+    ProjectRevenueSummary.`Account_Name`,
+    COUNT(DISTINCT ProjectRevenueSummary.`Project_ID`) AS `Total_Projects`,
+    SUM(ProjectRevenueSummary.`Revenue`) AS `Total_Revenue`,
+    ac.`comment` AS `Account_Comment`,
+    
+    -- Forecasted revenue for the selected month
+    COALESCE(SUM(
+        CASE :monthNameParam
+            WHEN 'january' THEN rf.`january`
+            WHEN 'february' THEN rf.`february`
+            WHEN 'march' THEN rf.`march`
+            WHEN 'april' THEN rf.`april`
+            WHEN 'may' THEN rf.`may`
+            WHEN 'june' THEN rf.`june`
+            WHEN 'july' THEN rf.`july`
+            WHEN 'august' THEN rf.`august`
+            WHEN 'september' THEN rf.`september`
+            WHEN 'october' THEN rf.`october`
+            WHEN 'november' THEN rf.`november`
+            WHEN 'december' THEN rf.`december`
+            ELSE 0
+        END
+    ), 0) AS `Forecast_Net_Revenue`,
+    
+    -- Difference between forecasted and actual revenue
+    (
+        COALESCE(SUM(
+            CASE :monthNameParam
+                WHEN 'january' THEN rf.`january`
+                WHEN 'february' THEN rf.`february`
+                WHEN 'march' THEN rf.`march`
+                WHEN 'april' THEN rf.`april`
+                WHEN 'may' THEN rf.`may`
+                WHEN 'june' THEN rf.`june`
+                WHEN 'july' THEN rf.`july`
+                WHEN 'august' THEN rf.`august`
+                WHEN 'september' THEN rf.`september`
+                WHEN 'october' THEN rf.`october`
+                WHEN 'november' THEN rf.`november`
+                WHEN 'december' THEN rf.`december`
+                ELSE 0
+            END
+        ), 0) - SUM(ProjectRevenueSummary.`Revenue`)
+    ) AS `Difference`
+    
 FROM (
-SELECT
-comtd.`PROJECT_ID` AS `Project_ID`,
-comtd.`PROJECT_NAME` AS `Project_Name`,
-a.`ACC_ID` AS `Account_ID`,
-a.`ACC_NAME` AS `Account_Name`,
-SUM(comtd.`TIME_QUANTITY` * COALESCE(ctd.`RT_RATE`, 0)) AS `Revenue`
-FROM
-`tbl_com_time_sheet` comtd
-INNER JOIN `associate_data` a
-ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
-AND comtd.`PROJECT_ID` = a.`esa_project_id`
-AND a.`ACC_ID` IS NOT NULL AND a.`ACC_ID` != '' AND a.`ACC_ID` != 'NA'
-AND a.`ACC_NAME` IS NOT NULL AND a.`ACC_NAME` != '' AND a.`ACC_NAME` != 'NA'
-LEFT JOIN `tbl_clt_time_sheet` ctd
-ON a.`EXTERNAL_ID` = ctd.`EXTERNAL_ID`
-AND comtd.`REPORTING_DATE` = ctd.`DATE`
-WHERE
-comtd.`CLIENT_BILLABLE` IS NOT NULL
-AND comtd.`CLIENT_BILLABLE` LIKE '%%B%%'
-AND comtd.`REPORTING_DATE` BETWEEN :startDate AND :endDate
-GROUP BY
-comtd.`PROJECT_ID`,
-comtd.`PROJECT_NAME`,
-a.`ACC_ID`,
-a.`ACC_NAME`
+    SELECT
+        comtd.`PROJECT_ID` AS `Project_ID`,
+        comtd.`PROJECT_NAME` AS `Project_Name`,
+        a.`ACC_ID` AS `Account_ID`,
+        a.`ACC_NAME` AS `Account_Name`,
+        SUM(comtd.`TIME_QUANTITY` * COALESCE(ctd.`RT_RATE`, 0)) AS `Revenue`
+    FROM
+        `tbl_com_time_sheet` comtd
+    INNER JOIN `associate_data` a
+        ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
+        AND comtd.`PROJECT_ID` = a.`esa_project_id`
+        AND a.`ACC_ID` IS NOT NULL AND a.`ACC_ID` != '' AND a.`ACC_ID` != 'NA'
+        AND a.`ACC_NAME` IS NOT NULL AND a.`ACC_NAME` != '' AND a.`ACC_NAME` != 'NA'
+    LEFT JOIN `tbl_clt_time_sheet` ctd
+        ON a.`EXTERNAL_ID` = ctd.`EXTERNAL_ID`
+        AND comtd.`REPORTING_DATE` = ctd.`DATE`
+    WHERE
+        comtd.`CLIENT_BILLABLE` IS NOT NULL
+        AND comtd.`CLIENT_BILLABLE` LIKE '%B%'
+        AND comtd.`REPORTING_DATE` BETWEEN :startDate AND :endDate
+    GROUP BY
+        comtd.`PROJECT_ID`,
+        comtd.`PROJECT_NAME`,
+        a.`ACC_ID`,
+        a.`ACC_NAME`
 ) AS ProjectRevenueSummary
+
 LEFT JOIN `account_comments` ac
-ON ProjectRevenueSummary.`Account_ID` = ac.`acc_id`
-AND ac.`month` = :month
-AND ac.`year` = :year
-LEFT JOIN `revenue_forecast` rf -- Added join for revenue forecast
-ON ProjectRevenueSummary.`Account_ID` = rf.`ACC_ID`
-AND rf.`PLHeader` = 'Net Revenue'
-AND rf.`year` = :year -- Assuming forecast year is the same as the comment year
+    ON ProjectRevenueSummary.`Account_ID` = ac.`acc_id`
+    AND ac.`month` = :month
+    AND ac.`year` = :year
+
+LEFT JOIN `revenue_forecast` rf
+    ON ProjectRevenueSummary.`Account_ID` = rf.`ACC_ID`
+    AND rf.`PLHeader` = 'Net Revenue'
+    AND rf.`year` = :year
 
 GROUP BY
-ProjectRevenueSummary.`Account_ID`,
-ProjectRevenueSummary.`Account_Name`,
-ac.`comment`
+    ProjectRevenueSummary.`Account_ID`,
+    ProjectRevenueSummary.`Account_Name`,
+    ac.`comment`
+
 ORDER BY
-ProjectRevenueSummary.`Account_ID`
+    ProjectRevenueSummary.`Account_ID`;
+
 
 """, resultSetMapping = "AccountComparisonMapping")
 @SqlResultSetMapping(name = "AccountComparisonMapping", classes = @ConstructorResult(targetClass = AccountComparisonDto.class, columns = {
@@ -160,7 +188,8 @@ ProjectRevenueSummary.`Account_ID`
 @ColumnResult(name = "Total_Projects", type = Long.class),
 @ColumnResult(name = "Total_Revenue", type = Double.class),
 @ColumnResult(name = "Account_Comment", type = String.class),
-@ColumnResult(name = "Forecast_Net_Revenue", type = Double.class) 
+@ColumnResult(name = "Forecast_Net_Revenue", type = Double.class),
+@ColumnResult(name = "Difference", type = Double.class) 
 }))	
 
 
