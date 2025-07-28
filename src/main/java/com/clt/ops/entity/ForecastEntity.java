@@ -34,6 +34,15 @@ public class ForecastEntity {
 
     @Column(name = "PLHeader", length = 255)
     private String plHeader;
+    
+    @Column(name = "BU", length = 255)
+    private String bu;
+    
+    @Column(name = "SBU1", length = 255)
+    private String sbu1;
+    
+    @Column(name = "SBU2", length = 255)
+    private String sbu2;
 
     @Column(name = "YTD")
     private BigDecimal ytd;
@@ -118,6 +127,18 @@ public class ForecastEntity {
 
 	public void setPlHeader(String plHeader) {
 		this.plHeader = plHeader;
+	}
+	
+	public void setBu(String bu) {
+		this.bu = bu;
+	}
+	
+	public void setSbu1(String sbu1) {
+		this.sbu1 = sbu1;
+	}
+	
+	public void setSbu2(String sbu2) {
+		this.sbu2 = sbu2;
 	}
 
 	public void setYtd(BigDecimal ytd) {

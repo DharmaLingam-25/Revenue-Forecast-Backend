@@ -10,7 +10,9 @@ private String accountName;
 private String pLCategory;
 private String pLHeader;
 
-
+private String bU;
+private String sBU1;
+private String sBU2;
 private String yTD;
 private String jan;
 private String feb;

@@ -21,9 +21,16 @@ public class ForecastFileProcessor implements GenericProcessor<ForecastData> {
     private final ForecastRepository forecastRepository;
     
     private String toWholeNumberString(String value) {
-	   
-	    return (value == null) ? null : String.valueOf(new BigDecimal(value).intValue());
-	}
+        try {
+            return (value == null || value.isBlank()) ? null : String.valueOf(new BigDecimal(value.trim()).intValue());
+        } catch (NumberFormatException e) {
+            log.warn("Invalid AccountID format: '{}'", value);
+            return null;
+        }
+    }
+    private String sanitizeText(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
+    }
 
     
     @Override
@@ -43,6 +50,12 @@ public class ForecastFileProcessor implements GenericProcessor<ForecastData> {
         
         entity.setAccountName(inData.getAccountName());
         entity.setPlHeader(inData.getPLHeader());
+        
+        entity.setBu(sanitizeText(inData.getBU()));
+        entity.setSbu1(sanitizeText(inData.getSBU1()));
+        entity.setSbu2(sanitizeText(inData.getSBU2()));
+
+        
 
         entity.setYtd(parseDecimal(inData.getYTD()));
         entity.setFy(parseDecimal(inData.getFY()));

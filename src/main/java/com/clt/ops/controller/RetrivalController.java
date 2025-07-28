@@ -16,7 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.clt.ops.dto.AccountComparisonDto;
 import com.clt.ops.dto.AssociateComparisonDTO;
 import com.clt.ops.dto.DateLevelComparisonDto;
-import com.clt.ops.dto.ProjectComparisonDto;
+
+import com.clt.ops.dto.ProjectTypeLevelSummaryDto;
 import com.clt.ops.dto.request.AccountCommentDto;
 import com.clt.ops.dto.request.RetriveDto;
 import com.clt.ops.entity.AccountCommentEntity;
@@ -25,6 +26,7 @@ import com.clt.ops.repository.comparison.AccountComparisonRepository;
 import com.clt.ops.repository.comparison.AssociateComparisonRepository;
 import com.clt.ops.repository.comparison.DateLevelComparisonRepository;
 import com.clt.ops.repository.comparison.ProjectComparisonRepository;
+import com.clt.ops.repository.comparison.ProjectTypeLevelSummaryRepository;
 
 import lombok.RequiredArgsConstructor;
 @CrossOrigin(origins = "http://localhost:3000") 
@@ -38,7 +40,7 @@ public class RetrivalController {
     private final AssociateComparisonRepository associateComparisonRepository;
     private final DateLevelComparisonRepository dateLevelComparisonRepository;
     private final AccountCommentRepository accountCommentRepository;
-
+    private final ProjectTypeLevelSummaryRepository projectTypeLevelSummaryRepository;
     @PostMapping("/account")
     public ResponseEntity<?> getAccountComparison(@RequestBody RetriveDto dto) {
         try {
@@ -57,19 +59,7 @@ public class RetrivalController {
         }
     }
 
-    @PostMapping(value = "/project", consumes = "application/json")
-    public ResponseEntity<?> getProjectSummary(@RequestBody RetriveDto dto) {
-        try {
-            LocalDate startDate = LocalDate.of(dto.getYear(), dto.getMonth(), 1);
-            LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
-            List<ProjectComparisonDto> result = projectComparisonRepository.getProjectSummary(
-                startDate, endDate, dto.getAccId()
-            );
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error fetching project summary: " + e.getMessage());
-        }
-    }
+    
 
     @PostMapping(value = "/associate", consumes = "application/json")
     public ResponseEntity<?> getAssociateSummary(@RequestBody RetriveDto dto) {
@@ -129,7 +119,22 @@ public class RetrivalController {
         }
         
     }
+    
+    @PostMapping(value = "/project-type-level", consumes = "application/json")
+    public ResponseEntity<?> getProjectTypeLevelSummary(@RequestBody RetriveDto dto) {
+        try {
+            LocalDate startDate = LocalDate.of(dto.getYear(), dto.getMonth(), 1);
+            LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
 
+            List<ProjectTypeLevelSummaryDto> result = projectTypeLevelSummaryRepository.getSummaryByType(
+                startDate.toString(), endDate.toString(), dto.getAccId()
+            );
 
-
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error fetching project type level summary: " + e.getMessage());
+        }
+    }
+  
 }
