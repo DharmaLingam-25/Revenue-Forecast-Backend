@@ -53,6 +53,7 @@ import jakarta.persistence.SqlResultSetMapping;
 	        WHERE
 	            comtd.`CLIENT_BILLABLE` IS NOT NULL
 	            AND comtd.`CLIENT_BILLABLE` LIKE '%B%'
+	            AND a.project_type  not like '%BFD%'
 	            AND comtd.`REPORTING_DATE` BETWEEN :startDate AND :endDate
 	            AND a.`ACC_ID` = :accId
 	            AND a.project_type =:projectType
