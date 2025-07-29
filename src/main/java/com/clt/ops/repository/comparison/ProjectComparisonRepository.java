@@ -15,7 +15,8 @@ public interface ProjectComparisonRepository extends JpaRepository<RetrivalEntit
 	    List<ProjectComparisonDto> getProjectSummary(
 	        @Param("startDate") LocalDate startDate,
 	        @Param("endDate") LocalDate endDate,
-	        @Param("accId") String accId
+	        @Param("accId") String accId,
+	        @Param("projectType") String projectType
 	    );
 	}
 

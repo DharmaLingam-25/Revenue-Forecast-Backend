@@ -13,7 +13,8 @@ public class RetriveDto {
     private int year;
     private String monthNameParam;
 
-    private String projectId;     // Optional: for Associate/Project/Date-level comparisons
-    private String associateId;   // Optional: for Date-level comparisons
-    private String accId;         // Optional: for Project-level comparison
+    private String projectId;     
+    private String associateId;   
+    private String accId;        
+    private String projectType;
 }

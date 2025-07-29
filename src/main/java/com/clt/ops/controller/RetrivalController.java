@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.clt.ops.dto.AccountComparisonDto;
 import com.clt.ops.dto.AssociateComparisonDTO;
 import com.clt.ops.dto.DateLevelComparisonDto;
-
+import com.clt.ops.dto.ProjectComparisonDto;
 import com.clt.ops.dto.ProjectTypeLevelSummaryDto;
 import com.clt.ops.dto.request.AccountCommentDto;
 import com.clt.ops.dto.request.RetriveDto;
@@ -119,6 +119,28 @@ public class RetrivalController {
         }
         
     }
+    
+    @PostMapping("/project")
+    public ResponseEntity<?> getProjectOverview(@RequestBody RetriveDto dto) {
+        try {
+            LocalDate startDate = LocalDate.of(dto.getYear(), dto.getMonth(), 1);
+            LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
+
+            List<ProjectComparisonDto> result = projectComparisonRepository.getProjectSummary(
+                startDate,
+                endDate,
+                dto.getAccId(),    
+                dto.getProjectType()     
+            );
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error fetching project overview: " + e.getMessage());
+        }
+    }
+
     
     @PostMapping(value = "/project-type-level", consumes = "application/json")
     public ResponseEntity<?> getProjectTypeLevelSummary(@RequestBody RetriveDto dto) {

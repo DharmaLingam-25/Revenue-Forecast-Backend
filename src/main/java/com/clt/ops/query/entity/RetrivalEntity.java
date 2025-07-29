@@ -55,6 +55,7 @@ import jakarta.persistence.SqlResultSetMapping;
 	            AND comtd.`CLIENT_BILLABLE` LIKE '%B%'
 	            AND comtd.`REPORTING_DATE` BETWEEN :startDate AND :endDate
 	            AND a.`ACC_ID` = :accId
+	            AND a.project_type =:projectType
 	        GROUP BY
 	            comtd.`PROJECT_ID`,
 	            comtd.`PROJECT_NAME`,
