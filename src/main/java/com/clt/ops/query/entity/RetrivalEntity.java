@@ -16,56 +16,71 @@ import jakarta.persistence.SqlResultSetMapping;
 @NamedNativeQuery(
 	    name = "ProjectComparison.getProjectSummary",
 	    query = """
-	        SELECT
-	            comtd.`PROJECT_ID` AS `Project_ID`,
-	            comtd.`PROJECT_NAME` AS `Project_Name`,
-	            a.`ACC_ID` AS `Account_ID`,
-	            a.`ACC_NAME` AS `Account_Name`,
-	            COUNT(DISTINCT comtd.`ASSOCIATE_ID`) AS `Total_Associates_Count`,
-	            SUM(comtd.`TIME_QUANTITY`) AS `Total_Company_Hours`,
-	            COALESCE(clt_summary.`Total_Client_Hours`, 0) AS `Total_Client_Hours`,
-	            ABS(SUM(comtd.`TIME_QUANTITY`) - COALESCE(clt_summary.`Total_Client_Hours`, 0)) AS `Variance_Hours`,
-	            SUM(comtd.`TIME_QUANTITY` * COALESCE(ctd.`RT_RATE`, 0)) AS `Revenue`
-	        FROM
-	            `tbl_com_time_sheet` comtd
-	        LEFT JOIN `associate_data` a
-	            ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
-	            AND comtd.`PROJECT_ID` = a.`esa_project_id`
-	            AND a.`ACC_ID` IS NOT NULL AND a.`ACC_ID` != '' AND a.`ACC_ID` != 'NA'
-	            AND a.`ACC_NAME` IS NOT NULL AND a.`ACC_NAME` != '' AND a.`ACC_NAME` != 'NA'
-	        LEFT JOIN `tbl_clt_time_sheet` ctd
-	            ON a.`EXTERNAL_ID` = ctd.`EXTERNAL_ID`
-	            AND comtd.`REPORTING_DATE` = ctd.`DATE`
-	        LEFT JOIN (
-	            SELECT
-	                a.`esa_project_id` AS `Project_ID`,
-	                SUM(cts.`UNITS`) AS `Total_Client_Hours`
-	            FROM
-	                `tbl_clt_time_sheet` cts
-	            INNER JOIN `associate_data` a
-	                ON cts.`EXTERNAL_ID` = a.`EXTERNAL_ID`
-	            WHERE
-	                cts.`DATE` BETWEEN :startDate AND :endDate
-	            GROUP BY
-	                a.`esa_project_id`
-	        ) AS clt_summary
-	            ON clt_summary.`Project_ID` = comtd.`PROJECT_ID`
-	        WHERE
-	            comtd.`CLIENT_BILLABLE` IS NOT NULL
-	            AND comtd.`CLIENT_BILLABLE` LIKE '%B%'
-	            AND a.project_type  not like '%BFD%'
-	            AND comtd.`REPORTING_DATE` BETWEEN :startDate AND :endDate
-	            AND a.`ACC_ID` = :accId
-	            AND a.project_type =:projectType
-	        GROUP BY
-	            comtd.`PROJECT_ID`,
-	            comtd.`PROJECT_NAME`,
-	            a.`ACC_ID`,
-	            a.`ACC_NAME`,
-	            clt_summary.`Total_Client_Hours`
-	        ORDER BY
-	            comtd.`PROJECT_ID`,
-	            a.`ACC_ID`
+	        WITH latest_rate AS (
+    SELECT 
+        cts.`EXTERNAL_ID`, 
+        cts.`RT_RATE`
+    FROM `tbl_clt_time_sheet` cts
+    INNER JOIN (
+        SELECT `EXTERNAL_ID`, MAX(`DATE`) AS `MaxDate`
+        FROM `tbl_clt_time_sheet`
+        GROUP BY `EXTERNAL_ID`
+    ) latest_dates 
+        ON cts.`EXTERNAL_ID` = latest_dates.`EXTERNAL_ID`
+        AND cts.`DATE` = latest_dates.`MaxDate`
+),
+
+client_hours_summary AS (
+    SELECT 
+        a.`esa_project_id` AS `Project_ID`,
+        SUM(cts.`UNITS`) AS `Total_Client_Hours`
+    FROM `tbl_clt_time_sheet` cts
+    INNER JOIN `associate_data` a
+        ON cts.`EXTERNAL_ID` = a.`EXTERNAL_ID`
+    WHERE cts.`DATE` BETWEEN :startDate AND :endDate
+    GROUP BY a.`esa_project_id`
+),
+
+filtered_timesheet AS (
+    SELECT *
+    FROM `tbl_com_time_sheet`
+    WHERE `CLIENT_BILLABLE` LIKE '%B%'
+    AND `REPORTING_DATE` BETWEEN :startDate AND :endDate
+)
+
+SELECT
+    comtd.`PROJECT_ID` AS `Project_ID`,
+    comtd.`PROJECT_NAME` AS `Project_Name`,
+    a.`ACC_ID` AS `Account_ID`,
+    a.`ACC_NAME` AS `Account_Name`,
+    COUNT(DISTINCT comtd.`ASSOCIATE_ID`) AS `Total_Associates_Count`,
+    SUM(comtd.`TIME_QUANTITY`) AS `Total_Company_Hours`,
+    COALESCE(clt.`Total_Client_Hours`, 0) AS `Total_Client_Hours`,
+    ABS(SUM(comtd.`TIME_QUANTITY`) - COALESCE(clt.`Total_Client_Hours`, 0)) AS `Variance_Hours`,
+    SUM(comtd.`TIME_QUANTITY` * COALESCE(lr.`RT_RATE`, 0)) AS `Revenue`
+FROM
+    filtered_timesheet comtd
+LEFT JOIN `associate_data` a
+    ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
+    AND comtd.`PROJECT_ID` = a.`esa_project_id`
+    AND a.`ACC_ID` = :accId
+    AND a.`ACC_ID` IS NOT NULL AND a.`ACC_ID` != '' AND a.`ACC_ID` != 'NA'
+    AND a.`ACC_NAME` IS NOT NULL AND a.`ACC_NAME` != '' AND a.`ACC_NAME` != 'NA'
+    AND a.project_type = :projectType
+LEFT JOIN latest_rate lr
+    ON a.`EXTERNAL_ID` = lr.`EXTERNAL_ID`
+LEFT JOIN client_hours_summary clt
+    ON comtd.`PROJECT_ID` = clt.`Project_ID`
+GROUP BY
+    comtd.`PROJECT_ID`,
+    comtd.`PROJECT_NAME`,
+    a.`ACC_ID`,
+    a.`ACC_NAME`,
+    clt.`Total_Client_Hours`
+ORDER BY
+    comtd.`PROJECT_ID`,
+    a.`ACC_ID`;
+
 	        """,
 	    resultSetMapping = "ProjectSummaryMapping"
 	)
