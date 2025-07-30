@@ -12,6 +12,7 @@ public class RetriveDto {
     private int month;
     private int year;
     private String monthNameParam;
+    private String sbu;
 
     private String projectId;     
     private String associateId;   

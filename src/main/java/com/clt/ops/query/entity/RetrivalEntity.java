@@ -140,12 +140,14 @@ project_level_accurate_revenue AS (
         AND comtd.`PROJECT_ID` = a.`esa_project_id`
         AND a.`ACC_ID` IS NOT NULL AND a.`ACC_ID` != '' AND a.`ACC_ID` != 'NA'
         AND a.`ACC_NAME` IS NOT NULL AND a.`ACC_NAME` != '' AND a.`ACC_NAME` != 'NA'
+        AND a.`sbu` = :sbu
     LEFT JOIN latest_rate lr
         ON a.`EXTERNAL_ID` = lr.`EXTERNAL_ID`
     GROUP BY
         comtd.`PROJECT_ID`,
         a.`ACC_ID`,
-        a.`ACC_NAME`
+        a.`ACC_NAME`,
+        a.sbu
 ),
 
 
