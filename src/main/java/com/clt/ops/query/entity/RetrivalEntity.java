@@ -105,99 +105,104 @@ ORDER BY
 
 
 @NamedNativeQuery(name = "AccountRevenueSummary.getAccountComparison", query = """
-SELECT
-    ProjectRevenueSummary.`Account_ID`,
-    ProjectRevenueSummary.`Account_Name`,
-    COUNT(DISTINCT ProjectRevenueSummary.`Project_ID`) AS `Total_Projects`,
-    SUM(ProjectRevenueSummary.`Revenue`) AS `Total_Revenue`,
-    ac.`comment` AS `Account_Comment`,
-    
-    -- Forecasted revenue for the selected month
-    COALESCE(SUM(
-        CASE :monthNameParam
-            WHEN 'january' THEN rf.`january`
-            WHEN 'february' THEN rf.`february`
-            WHEN 'march' THEN rf.`march`
-            WHEN 'april' THEN rf.`april`
-            WHEN 'may' THEN rf.`may`
-            WHEN 'june' THEN rf.`june`
-            WHEN 'july' THEN rf.`july`
-            WHEN 'august' THEN rf.`august`
-            WHEN 'september' THEN rf.`september`
-            WHEN 'october' THEN rf.`october`
-            WHEN 'november' THEN rf.`november`
-            WHEN 'december' THEN rf.`december`
-            ELSE 0
-        END
-    ), 0) AS `Forecast_Net_Revenue`,
-    
-    -- Difference between forecasted and actual revenue
-    (
-        COALESCE(SUM(
-            CASE :monthNameParam
-                WHEN 'january' THEN rf.`january`
-                WHEN 'february' THEN rf.`february`
-                WHEN 'march' THEN rf.`march`
-                WHEN 'april' THEN rf.`april`
-                WHEN 'may' THEN rf.`may`
-                WHEN 'june' THEN rf.`june`
-                WHEN 'july' THEN rf.`july`
-                WHEN 'august' THEN rf.`august`
-                WHEN 'september' THEN rf.`september`
-                WHEN 'october' THEN rf.`october`
-                WHEN 'november' THEN rf.`november`
-                WHEN 'december' THEN rf.`december`
-                ELSE 0
-            END
-        ), 0) - SUM(ProjectRevenueSummary.`Revenue`)
-    ) AS `Difference`
-    
-FROM (
+WITH latest_rate AS (
+    SELECT
+        cts.`EXTERNAL_ID`,
+        cts.`RT_RATE`
+    FROM `tbl_clt_time_sheet` cts
+    INNER JOIN (
+        SELECT `EXTERNAL_ID`, MAX(`DATE`) AS `MaxDate`
+        FROM `tbl_clt_time_sheet`
+        GROUP BY `EXTERNAL_ID`
+    ) latest_dates
+        ON cts.`EXTERNAL_ID` = latest_dates.`EXTERNAL_ID`
+        AND cts.`DATE` = latest_dates.`MaxDate`
+),
+
+filtered_timesheet AS (
+    SELECT
+        *
+    FROM `tbl_com_time_sheet`
+    WHERE `CLIENT_BILLABLE` LIKE '%B%'
+      AND `REPORTING_DATE` BETWEEN :startDate AND :endDate
+),
+
+project_level_accurate_revenue AS (
     SELECT
         comtd.`PROJECT_ID` AS `Project_ID`,
-        comtd.`PROJECT_NAME` AS `Project_Name`,
         a.`ACC_ID` AS `Account_ID`,
         a.`ACC_NAME` AS `Account_Name`,
-        SUM(comtd.`TIME_QUANTITY` * COALESCE(ctd.`RT_RATE`, 0)) AS `Revenue`
+        SUM(comtd.`TIME_QUANTITY` * COALESCE(lr.`RT_RATE`, 0)) AS `Revenue`
     FROM
-        `tbl_com_time_sheet` comtd
+        filtered_timesheet comtd
     INNER JOIN `associate_data` a
         ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
         AND comtd.`PROJECT_ID` = a.`esa_project_id`
         AND a.`ACC_ID` IS NOT NULL AND a.`ACC_ID` != '' AND a.`ACC_ID` != 'NA'
         AND a.`ACC_NAME` IS NOT NULL AND a.`ACC_NAME` != '' AND a.`ACC_NAME` != 'NA'
-    LEFT JOIN `tbl_clt_time_sheet` ctd
-        ON a.`EXTERNAL_ID` = ctd.`EXTERNAL_ID`
-        AND comtd.`REPORTING_DATE` = ctd.`DATE`
-    WHERE
-        comtd.`CLIENT_BILLABLE` IS NOT NULL
-        AND comtd.`CLIENT_BILLABLE` LIKE '%B%'
-        AND comtd.`REPORTING_DATE` BETWEEN :startDate AND :endDate
+    LEFT JOIN latest_rate lr
+        ON a.`EXTERNAL_ID` = lr.`EXTERNAL_ID`
     GROUP BY
         comtd.`PROJECT_ID`,
-        comtd.`PROJECT_NAME`,
         a.`ACC_ID`,
         a.`ACC_NAME`
-) AS ProjectRevenueSummary
+),
 
+
+monthly_account_forecast AS (
+    SELECT
+        f.`acc_id`,
+        f.`year`,
+        COALESCE(SUM(
+            CASE LOWER(:monthNameParam) 
+                WHEN 'january' THEN f.`january`
+                WHEN 'february' THEN f.`february`
+                WHEN 'march' THEN f.`march`
+                WHEN 'april' THEN f.`april`
+                WHEN 'may' THEN f.`may`
+                WHEN 'june' THEN f.`june`
+                WHEN 'july' THEN f.`july`
+                WHEN 'august' THEN f.`august`
+                WHEN 'september' THEN f.`september`
+                WHEN 'october' THEN f.`october`
+                WHEN 'november' THEN f.`november`
+                WHEN 'december' THEN f.`december`
+                ELSE 0
+            END
+        ), 0) AS `forecast_value`
+    FROM `revenue_forecast` f
+    WHERE
+        f.`plheader` = 'Net Revenue'
+        AND f.`YEAR` = :year
+    GROUP BY f.`acc_id`, f.`year`
+)
+
+SELECT
+    plar.`Account_ID`,
+    plar.`Account_Name`,
+    COUNT(DISTINCT plar.`Project_ID`) AS `Total_Projects`,
+    SUM(plar.`Revenue`) AS `Total_Revenue`,
+    ac.`comment` AS `Account_Comment`,
+    maf.`forecast_value` AS `Forecast_Net_Revenue`, 
+    (maf.`forecast_value` - SUM(plar.`Revenue`)) AS `Difference` 
+
+FROM
+    project_level_accurate_revenue plar
 LEFT JOIN `account_comments` ac
-    ON ProjectRevenueSummary.`Account_ID` = ac.`acc_id`
+    ON plar.`Account_ID` = ac.`acc_id`
     AND ac.`month` = :month
     AND ac.`year` = :year
-
-LEFT JOIN `revenue_forecast` rf
-    ON ProjectRevenueSummary.`Account_ID` = rf.`ACC_ID`
-    AND rf.`PLHeader` = 'Net Revenue'
-    AND rf.`year` = :year
+LEFT JOIN monthly_account_forecast maf 
+    ON plar.`Account_ID` = maf.`acc_id`
+    AND maf.`year` = :year
 
 GROUP BY
-    ProjectRevenueSummary.`Account_ID`,
-    ProjectRevenueSummary.`Account_Name`,
-    ac.`comment`
-
+    plar.`Account_ID`,
+    plar.`Account_Name`,
+    ac.`comment`,
+    maf.`forecast_value` 
 ORDER BY
-    ProjectRevenueSummary.`Account_ID`;
-
+    plar.`Account_ID`;
 
 """, resultSetMapping = "AccountComparisonMapping")
 @SqlResultSetMapping(name = "AccountComparisonMapping", classes = @ConstructorResult(targetClass = AccountComparisonDto.class, columns = {

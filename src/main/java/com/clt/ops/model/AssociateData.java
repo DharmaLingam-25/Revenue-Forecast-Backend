@@ -21,4 +21,6 @@ public class AssociateData {
     private String eSAID;
     private String aCCID;
     private String aCCNAME;
+    private String sBU;
+
 }

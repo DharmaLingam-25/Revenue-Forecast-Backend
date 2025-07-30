@@ -63,6 +63,7 @@ public class AssociateFileProcessor implements GenericProcessor<AssociateData> {
         associateEntity.setAccId(toWholeNumberString(associateData.getACCID()));
 
         associateEntity.setAccName(associateData.getACCNAME());
+        associateEntity.setSbu(associateData.getSBU());
 
        
         log.info("Successfully persisted associate with CTS ID: {}", associateData.toString());

@@ -49,4 +49,6 @@ public class AssociateEntity {
     @Column(name = "ACC_NAME")
     private String accName;
     
+    @Column(name="SBU")
+    private String sbu;
 }
