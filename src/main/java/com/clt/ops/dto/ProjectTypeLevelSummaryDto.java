@@ -9,5 +9,5 @@ public class ProjectTypeLevelSummaryDto {
     private String projectType;
     private Long totalProjectsInType;
     private Double totalRevenueByType;
-    private Double totalRevenueVarianceEstimateByType;
+   
 }

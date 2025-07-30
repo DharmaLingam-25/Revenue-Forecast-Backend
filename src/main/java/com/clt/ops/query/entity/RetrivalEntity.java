@@ -329,49 +329,56 @@ ORDER BY comtd.REPORTING_DATE
 @NamedNativeQuery(
 	    name = "ProjectTypeLevelSummary.getSummaryByType",
 	    query = """
-	        WITH associate_rates AS (
-	            SELECT a.`CTS_ID` AS `Associate_ID`,
-	                   MAX(COALESCE(ctd.`RT_RATE`, 0)) AS `Flat_RT_Rate`
-	            FROM `associate_data` a
-	            LEFT JOIN `tbl_clt_time_sheet` ctd
-	                ON a.`EXTERNAL_ID` = ctd.`EXTERNAL_ID`
-	            WHERE ctd.`DATE` BETWEEN :startDate AND :endDate
-	            GROUP BY a.`CTS_ID`
-	        ),
-	        ProjectLevelSummary AS (
-	            SELECT
-	                a.`PROJECT_TYPE` AS `Project_Type`,
-	                comtd.`PROJECT_ID` AS `Project_ID`,
-	                SUM(comtd.`TIME_QUANTITY` * COALESCE(ar.`Flat_RT_Rate`, 0)) AS `Project_Actual_Revenue_Billable`,
-	                ABS(SUM(comtd.`TIME_QUANTITY`) - SUM(CASE WHEN ctd.`EXTERNAL_ID` IS NULL THEN 0 ELSE ctd.`UNITS` END)) AS `Project_Billable_Hour_Variance`
-	            FROM `tbl_com_time_sheet` comtd
-	            INNER JOIN `associate_data` a
-	                ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
-	                AND comtd.`PROJECT_ID` = a.`esa_project_id`
-	            LEFT JOIN `tbl_clt_time_sheet` ctd
-	                ON a.`EXTERNAL_ID` = ctd.`EXTERNAL_ID`
-	                AND comtd.`REPORTING_DATE` = ctd.`DATE`
-	            LEFT JOIN associate_rates ar
-	                ON ar.`Associate_ID` = comtd.`ASSOCIATE_ID`
-	            WHERE comtd.`CLIENT_BILLABLE` LIKE '%B%'
-	              AND comtd.`REPORTING_DATE` BETWEEN :startDate AND :endDate
-	              AND a.`ACC_ID` = :accId
-	            GROUP BY a.`PROJECT_TYPE`, comtd.`PROJECT_ID`
-	        )
-	        SELECT
-	            pls.`Project_Type`,
-	            COUNT(DISTINCT pls.`Project_ID`) AS `Total_Projects_In_Type`,
-	            SUM(pls.`Project_Actual_Revenue_Billable`) AS `Total_Revenue_By_Type`,
-	            ROUND(SUM(pls.`Project_Billable_Hour_Variance` * (
-	                SELECT AVG(COALESCE(ar_inner.`Flat_RT_Rate`, 0))
-	                FROM associate_rates ar_inner
-	                INNER JOIN associate_data a_inner ON ar_inner.`Associate_ID` = a_inner.`CTS_ID`
-	                WHERE a_inner.`PROJECT_TYPE` = pls.`Project_Type`
-	                  AND a_inner.`ACC_ID` = :accId
-	            )), 2) AS `Total_Revenue_Variance_Estimate_By_Type`
-	        FROM ProjectLevelSummary pls
-	        GROUP BY pls.`Project_Type`
-	        ORDER BY pls.`Project_Type`
+	        WITH latest_rate AS (
+    SELECT
+        cts.`EXTERNAL_ID`,
+        cts.`RT_RATE`
+    FROM `tbl_clt_time_sheet` cts
+    INNER JOIN (
+        SELECT `EXTERNAL_ID`, MAX(`DATE`) AS `MaxDate`
+        FROM `tbl_clt_time_sheet`
+        GROUP BY `EXTERNAL_ID`
+    ) latest_dates
+        ON cts.`EXTERNAL_ID` = latest_dates.`EXTERNAL_ID`
+        AND cts.`DATE` = latest_dates.`MaxDate`
+),
+
+client_hours_summary AS (
+    SELECT
+        a.`esa_project_id` AS `Project_ID`,
+        SUM(cts.`UNITS`) AS `Total_Client_Hours`
+    FROM `tbl_clt_time_sheet` cts
+    INNER JOIN `associate_data` a
+        ON cts.`EXTERNAL_ID` = a.`EXTERNAL_ID`
+    WHERE cts.`DATE` BETWEEN :startDate AND :endDate
+    GROUP BY a.`esa_project_id`
+),
+
+filtered_timesheet AS (
+    SELECT
+        *
+    FROM `tbl_com_time_sheet`
+    WHERE `CLIENT_BILLABLE` LIKE '%B%'
+      AND `REPORTING_DATE` BETWEEN :startDate AND :endDate
+)
+
+SELECT
+    a.`PROJECT_TYPE`,
+    COUNT(DISTINCT comtd.`PROJECT_ID`) AS `Total_Projects`,
+    SUM(comtd.`TIME_QUANTITY` * COALESCE(lr.`RT_RATE`, 0)) AS `Total_Revenue_By_Project_Type`
+FROM filtered_timesheet comtd
+INNER JOIN `associate_data` a
+    ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
+    AND comtd.`PROJECT_ID` = a.`esa_project_id`
+LEFT JOIN latest_rate lr
+    ON a.`EXTERNAL_ID` = lr.`EXTERNAL_ID`
+WHERE
+    a.`ACC_ID` = :accId
+    AND a.`PROJECT_TYPE` IS NOT NULL
+    And a.`project_type` not like '%BFD%'
+GROUP BY a.`PROJECT_TYPE`
+ORDER BY a.`PROJECT_TYPE`
+
 	    """,
 	    resultSetMapping = "ProjectTypeLevelSummaryMapping"
 	)
@@ -381,10 +388,10 @@ ORDER BY comtd.REPORTING_DATE
 	    classes = @ConstructorResult(
 	        targetClass = ProjectTypeLevelSummaryDto.class,
 	        columns = {
-	            @ColumnResult(name = "Project_Type", type = String.class),
-	            @ColumnResult(name = "Total_Projects_In_Type", type = Long.class),
-	            @ColumnResult(name = "Total_Revenue_By_Type", type = Double.class),
-	            @ColumnResult(name = "Total_Revenue_Variance_Estimate_By_Type", type = Double.class)
+	            @ColumnResult(name = "PROJECT_TYPE", type = String.class),
+	            @ColumnResult(name = "Total_Projects", type = Long.class),
+	            @ColumnResult(name = "Total_Revenue_By_Project_Type", type = Double.class)
+	            
 	        }
 	    )
 	)
