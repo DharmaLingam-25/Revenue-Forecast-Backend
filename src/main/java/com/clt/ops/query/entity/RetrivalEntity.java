@@ -5,6 +5,7 @@ import com.clt.ops.dto.AssociateComparisonDTO;
 import com.clt.ops.dto.DateLevelComparisonDto;
 import com.clt.ops.dto.ProjectComparisonDto;
 import com.clt.ops.dto.ProjectTypeLevelSummaryDto;
+import com.clt.ops.dto.SbuRevenueForecastDto;
 
 import jakarta.persistence.ColumnResult;
 import jakarta.persistence.ConstructorResult;
@@ -402,6 +403,98 @@ ORDER BY a.`PROJECT_TYPE`
 	        }
 	    )
 	)
+
+
+@NamedNativeQuery(
+	    name = "SbuRevenueForecast.getRevenueVsForecast",
+	    query = """
+	        WITH latest_rate AS (
+	            SELECT
+	                cts.`EXTERNAL_ID`,
+	                cts.`RT_RATE`
+	            FROM `tbl_clt_time_sheet` cts
+	            INNER JOIN (
+	                SELECT `EXTERNAL_ID`, MAX(`DATE`) AS `MaxDate`
+	                FROM `tbl_clt_time_sheet`
+	                GROUP BY `EXTERNAL_ID`
+	            ) latest_dates
+	                ON cts.`EXTERNAL_ID` = latest_dates.`EXTERNAL_ID`
+	                AND cts.`DATE` = latest_dates.`MaxDate`
+	        ),
+
+	        filtered_timesheet AS (
+	            SELECT *
+	            FROM `tbl_com_time_sheet`
+	            WHERE `CLIENT_BILLABLE` LIKE '%B%'
+	              AND `REPORTING_DATE` BETWEEN :startDate AND :endDate
+	        ),
+
+	        project_level_accurate_revenue AS (
+	            SELECT
+	                a.`sbu` AS `SBU_Name`,
+	                SUM(comtd.`TIME_QUANTITY` * COALESCE(lr.`RT_RATE`, 0)) AS `Total_SBU_Revenue`
+	            FROM filtered_timesheet comtd
+	            INNER JOIN `associate_data` a
+	                ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
+	                AND comtd.`PROJECT_ID` = a.`esa_project_id`
+	                AND a.`ACC_ID` IS NOT NULL AND a.`ACC_ID` != '' AND a.`ACC_ID` != 'NA'
+	                AND a.`ACC_NAME` IS NOT NULL AND a.`ACC_NAME` != '' AND a.`ACC_NAME` != 'NA'
+	            LEFT JOIN latest_rate lr
+	                ON a.`EXTERNAL_ID` = lr.`EXTERNAL_ID`
+	            GROUP BY a.`sbu`
+	        ),
+
+	        monthly_sbu_forecast AS (
+	            SELECT
+	                f.`sbu1` AS `SBU_Name`,
+	                COALESCE(SUM(
+	                    CASE LOWER(:monthNameParam)
+	                        WHEN 'january' THEN f.`january`
+	                        WHEN 'february' THEN f.`february`
+	                        WHEN 'march' THEN f.`march`
+	                        WHEN 'april' THEN f.`april`
+	                        WHEN 'may' THEN f.`may`
+	                        WHEN 'june' THEN f.`june`
+	                        WHEN 'july' THEN f.`july`
+	                        WHEN 'august' THEN f.`august`
+	                        WHEN 'september' THEN f.`september`
+	                        WHEN 'october' THEN f.`october`
+	                        WHEN 'november' THEN f.`november`
+	                        WHEN 'december' THEN f.`december`
+	                        ELSE 0
+	                    END
+	                ), 0) AS `Total_SBU_Forecast`
+	            FROM `revenue_forecast` f
+	            WHERE f.`plheader` = 'Net Revenue'
+	              AND f.`YEAR` = :year
+	            GROUP BY f.`sbu1`
+	        )
+
+	        SELECT
+	            pr.`SBU_Name`,
+	            pr.`Total_SBU_Revenue`,
+	            COALESCE(mf.`Total_SBU_Forecast`, 0) AS `Total_SBU_Forecast`
+	        FROM project_level_accurate_revenue pr
+	        LEFT JOIN monthly_sbu_forecast mf
+	            ON pr.`SBU_Name` = mf.`SBU_Name`
+	        ORDER BY pr.`SBU_Name`
+	    """,
+	    resultSetMapping = "SbuRevenueForecastMapping"
+	)
+
+
+@SqlResultSetMapping(
+	    name = "SbuRevenueForecastMapping",
+	    classes = @ConstructorResult(
+	        targetClass = SbuRevenueForecastDto.class,
+	        columns = {
+	            @ColumnResult(name = "SBU_Name", type = String.class),
+	            @ColumnResult(name = "Total_SBU_Revenue", type = Double.class),
+	            @ColumnResult(name = "Total_SBU_Forecast", type = Double.class)
+	        }
+	    )
+	)
+
 @Entity
 public class RetrivalEntity {
 	@Id

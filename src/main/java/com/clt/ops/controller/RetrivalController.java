@@ -18,6 +18,7 @@ import com.clt.ops.dto.AssociateComparisonDTO;
 import com.clt.ops.dto.DateLevelComparisonDto;
 import com.clt.ops.dto.ProjectComparisonDto;
 import com.clt.ops.dto.ProjectTypeLevelSummaryDto;
+import com.clt.ops.dto.SbuRevenueForecastDto;
 import com.clt.ops.dto.request.AccountCommentDto;
 import com.clt.ops.dto.request.RetriveDto;
 import com.clt.ops.entity.AccountCommentEntity;
@@ -27,6 +28,7 @@ import com.clt.ops.repository.comparison.AssociateComparisonRepository;
 import com.clt.ops.repository.comparison.DateLevelComparisonRepository;
 import com.clt.ops.repository.comparison.ProjectComparisonRepository;
 import com.clt.ops.repository.comparison.ProjectTypeLevelSummaryRepository;
+import com.clt.ops.repository.comparison.SbuRevenueForecastRepository;
 
 import lombok.RequiredArgsConstructor;
 @CrossOrigin(origins = "http://localhost:3000") 
@@ -41,6 +43,8 @@ public class RetrivalController {
     private final DateLevelComparisonRepository dateLevelComparisonRepository;
     private final AccountCommentRepository accountCommentRepository;
     private final ProjectTypeLevelSummaryRepository projectTypeLevelSummaryRepository;
+    private final SbuRevenueForecastRepository sbuRevenueForecastRepository;
+    
     @PostMapping("/account")
     public ResponseEntity<?> getAccountComparison(@RequestBody RetriveDto dto) {
         try {
@@ -49,7 +53,6 @@ public class RetrivalController {
             List<AccountComparisonDto> result = retrivalRepository.getAccountComparison(
                     startDate,
                     endDate,
-                    dto.getMonth(),
                     dto.getYear(),
                     dto.getMonthNameParam() ,
                     dto.getSbu()
@@ -160,4 +163,21 @@ public class RetrivalController {
         }
     }
   
+    @PostMapping("/sbu")
+    public ResponseEntity<?> getSbu(@RequestBody RetriveDto dto) {
+        try {
+            LocalDate startDate = LocalDate.of(dto.getYear(), dto.getMonth(), 1);
+            LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
+            List<SbuRevenueForecastDto> result = sbuRevenueForecastRepository.getSbuSummary(
+                    startDate,
+                    endDate,
+                    dto.getYear(),
+                    dto.getMonthNameParam() 
+                    
+                );            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error fetching account comparison: " + e.getMessage());
+        }
+    }
 }
