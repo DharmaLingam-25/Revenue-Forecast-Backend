@@ -55,7 +55,8 @@ public class RetrivalController {
                     endDate,
                     dto.getYear(),
                     dto.getMonthNameParam() ,
-                    dto.getSbu()
+                    dto.getSbu(),
+                    dto.getMonth()
                 );            
             return ResponseEntity.ok(result);
         } catch (Exception e) {

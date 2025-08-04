@@ -17,7 +17,8 @@ public interface AccountComparisonRepository extends JpaRepository<RetrivalEntit
 	    @Param("endDate") LocalDate endDate,
 	    @Param("year") int year,
 	    @Param("monthNameParam") String monthNameParam,
-	    @Param("sbu") String sbu
+	    @Param("sbu") String sbu,
+	    @Param("month") int month
 	);
 
 }
