@@ -12,4 +12,5 @@ public class SbuRevenueForecastDto {
 	  	private String sbuName;
 	    private Double totalSbuRevenue;
 	    private Double totalSbuForecast;
+	    private Double totalAccount;
 }

@@ -432,7 +432,8 @@ ORDER BY a.`PROJECT_TYPE`
 	        project_level_accurate_revenue AS (
 	            SELECT
 	                a.`sbu` AS `SBU_Name`,
-	                SUM(comtd.`TIME_QUANTITY` * COALESCE(lr.`RT_RATE`, 0)) AS `Total_SBU_Revenue`
+	                SUM(comtd.`TIME_QUANTITY` * COALESCE(lr.`RT_RATE`, 0)) AS `Total_SBU_Revenue`,
+	                 COUNT(DISTINCT a.`ACC_ID`) AS `Total_Accounts`
 	            FROM filtered_timesheet comtd
 	            INNER JOIN `associate_data` a
 	                ON comtd.`ASSOCIATE_ID` = a.`CTS_ID`
@@ -473,7 +474,8 @@ ORDER BY a.`PROJECT_TYPE`
 	        SELECT
 	            pr.`SBU_Name`,
 	            pr.`Total_SBU_Revenue`,
-	            COALESCE(mf.`Total_SBU_Forecast`, 0) AS `Total_SBU_Forecast`
+	            COALESCE(mf.`Total_SBU_Forecast`, 0) AS `Total_SBU_Forecast`,
+	             pr.`Total_Accounts`
 	        FROM project_level_accurate_revenue pr
 	        LEFT JOIN monthly_sbu_forecast mf
 	            ON pr.`SBU_Name` = mf.`SBU_Name`
@@ -490,7 +492,9 @@ ORDER BY a.`PROJECT_TYPE`
 	        columns = {
 	            @ColumnResult(name = "SBU_Name", type = String.class),
 	            @ColumnResult(name = "Total_SBU_Revenue", type = Double.class),
-	            @ColumnResult(name = "Total_SBU_Forecast", type = Double.class)
+	            @ColumnResult(name = "Total_SBU_Forecast", type = Double.class),
+	            @ColumnResult(name = "Total_Accounts", type = Double.class)
+	            
 	        }
 	    )
 	)
